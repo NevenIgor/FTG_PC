@@ -112,14 +112,14 @@ class Client(QtWidgets.QMainWindow):
                 self.ip = data['server_ip']
                 self.port = data['server_port']
                 self.name = data['username']
-                '''if self.connected:
+                if self.connected:
                     payload = {
                         'type': 'UPDATE_USERNAME',
                         'userid': self.id,
                         'username': self.name,
                         'status': 'OK'
                     }
-                    self.connect_monitor.send_encrypt(payload)'''
+                    self.connect_monitor.send_encrypt(payload)
 
     def set_config(self):
         with open(os.path.join("Data", "config.json"), 'w') as file:

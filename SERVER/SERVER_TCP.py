@@ -183,7 +183,6 @@ class Server:
                             self.online_clients[client]['name'] = name
                     print(f'pub2: {self.online_clients[client]["pub"]}')
                     print('Генерация симметричного ключа...')
-                    #master_key = long_to_bytes(dh.generate_full_key(self.online_clients[client]['pub']))
                     master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(256, 'big')
                     print(f'Симметричный ключ: {master_key}')
                     self.online_clients[client]['master'] = master_key
@@ -280,15 +279,15 @@ class Server:
                     source = recv['userid']
                     dest = recv['chatid']
                     if dest == -1:
-                        query = f'SELECT * FROM messages WHERE destination_id = -1'
+                        query = f'SELECT * FROM messages WHERE destination_id = -1 ORDER BY id DESC LIMIT 10'
                     else:
                         query = f'SELECT * FROM user{source} WHERE (destination_id = {source} and source_id = {dest}) ' \
                                 f'or ' \
-                                f'(destination_id = {dest} and source_id = {source})'
+                                f'(destination_id = {dest} and source_id = {source}) ORDER BY id DESC LIMIT 10'
                     con = sqlite3.connect('AppData/backup.db')
                     cursor = con.cursor()
                     cursor.execute(query)
-                    res = cursor.fetchall()
+                    res = cursor.fetchall()[::-1]
                     con.close()
                     payload = {
                         'type': 'MESSAGE_UPDATE_RESPONSE',
@@ -302,6 +301,7 @@ class Server:
                 elif recv['type'] == "UPDATE_USERNAME":
                     userid = recv['userid']
                     username = recv['username']
+                    self.online_clients[client_socket]['name'] = username
                     con = sqlite3.connect('AppData/members.db')
                     cursor = con.cursor()
                     query = f'UPDATE users SET name = "{username}" WHERE id = {userid}'
