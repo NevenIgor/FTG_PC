@@ -1,4 +1,3 @@
-from Crypto.Util.number import long_to_bytes
 import socket
 import threading
 import pickle
