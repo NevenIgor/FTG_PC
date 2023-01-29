@@ -18,4 +18,4 @@ class DHEndpoint():
 
     def generate_full_key(self, pub_key):
         full_key = pow(pub_key, self.priv_key, self.p)
-        return full_key
+        return pow(full_key, 1, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)

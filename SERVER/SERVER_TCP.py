@@ -132,13 +132,11 @@ class Server:
                             self.online_clients[client]['name'] = name
                     print(f'pub2: {self.online_clients[client]["pub"]}')
                     print('Генерация симметричного ключа...')
-                    #master_key = long_to_bytes(dh.generate_full_key(self.online_clients[client]['pub']))
-                    master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(256, 'big')
+                    master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                     print(f'Симметричный ключ: {master_key}')
                     self.online_clients[client]['master'] = master_key
                     print(f'{address} - Успешное подключение к чату!')
                     print(self.online_clients[client])
-                    print()
                     con = sqlite3.connect('AppData/backup.db')
                     cursor = con.cursor()
                     create_table = f'CREATE TABLE IF NOT EXISTS user{self.online_clients[client]["id"]}(' \
@@ -194,12 +192,11 @@ class Server:
                             self.online_clients[client]['name'] = name
                     print(f'pub2: {self.online_clients[client]["pub"]}')
                     print('Генерация симметричного ключа...')
-                    master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(256, 'big')
+                    master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                     print(f'Симметричный ключ: {master_key}')
                     self.online_clients[client]['master'] = master_key
                     print(f'{address} - Успешное подключение к чату!')
                     print(self.online_clients[client])
-                    print()
                     con = sqlite3.connect('AppData/members.db')
                     cursor = con.cursor()
                     cursor.execute(f'SELECT name FROM users WHERE id = {self.online_clients[client]["id"]}')
@@ -210,7 +207,6 @@ class Server:
                     con.commit()
                     con.close()
                     threading.Thread(target=self.message_handler, args=(client,)).start()
-                    #self.update_members()
             time.sleep(2)
 
     def message_handler(self, client_socket):

@@ -54,7 +54,7 @@ class MessageMonitor(QtCore.QThread):
                             'status': 'OK'
                         }
                         self.send_encrypt(payload)
-                        master_key = dh.generate_full_key(pub).to_bytes(256, 'big')
+                        master_key = dh.generate_full_key(pub).to_bytes(32, 'big')
                         self.mysignal.emit({'type': 'SET_MASTER_KEY',
                                             'master_key': master_key})
 

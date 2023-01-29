@@ -112,7 +112,7 @@ class Client(QtWidgets.QMainWindow):
                         }
                         self.set_config()
                         self.send_data(payload)
-                        self.master_key = dh.generate_full_key(pub).to_bytes(256, 'big')
+                        self.master_key = dh.generate_full_key(pub).to_bytes(32, 'big')
 
                         self.connect_monitor.pub_ds = self.srv_pub_ds
                         self.connect_monitor.symmetric_key = self.master_key
