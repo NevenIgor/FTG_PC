@@ -276,6 +276,11 @@ class Client(QtWidgets.QMainWindow):
                             for item in self.items:
                                 if item.userid == uid:
                                     item.setBackground(QtGui.QColor('green'))
+            else:
+                if members != -1:
+                    for item in self.items:
+                        if item.userid == uid:
+                            item.setBackground(QtGui.QColor('green'))
 
         elif value['type'] == 'UPDATE_MEMBERS':
             self.items.clear()
