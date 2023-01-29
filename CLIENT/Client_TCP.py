@@ -1,6 +1,5 @@
 import socket
 import json
-import pickle
 import time
 import os
 
@@ -11,6 +10,7 @@ from ThreadMonitor import MessageMonitor
 from SettingsPanel import SettingPanel
 
 from CryptoCore.DH import DHEndpoint
+from CryptoCore.EC import ECPoint
 
 
 class Client(QtWidgets.QMainWindow):
@@ -25,6 +25,7 @@ class Client(QtWidgets.QMainWindow):
         self.id = None
         self.name = None
         self.connected = False
+        self.DEFAULT_SIZE = 4096
 
         self.update_config()
 
@@ -59,6 +60,15 @@ class Client(QtWidgets.QMainWindow):
 
         self.connect()
 
+    def send_data(self, payload):
+        data = json.dumps(payload)
+        self.client.send(data.encode())
+
+    def recv_data(self):
+        recv = self.client.recv(self.DEFAULT_SIZE).decode()
+        print(recv)
+        return json.loads(recv)
+
     def connect(self):
         if not self.connected:
             try:
@@ -77,14 +87,19 @@ class Client(QtWidgets.QMainWindow):
                         'type': 'CONNECT',
                         'id': self.id
                     }
-                self.client.send(pickle.dumps(payload))
-                recv = pickle.loads(self.client.recv(2048))
+                self.send_data(payload)
+                recv = self.recv_data()
                 if recv['status'] == 'OK':
                     if recv['type'] == 'CHANGE_CIPHER_SPEC':
                         if recv.get('id', None):
                             self.id = recv['id']
                         data = recv['data']
-                        self.srv_pub_ds = data['pub_ds']
+                        pub_ds_spec = data['pub_ds']
+                        self.srv_pub_ds = ECPoint(pub_ds_spec[0],
+                                                  pub_ds_spec[1],
+                                                  pub_ds_spec[2],
+                                                  pub_ds_spec[3],
+                                                  pub_ds_spec[4])
                         dh = DHEndpoint(data['p'], data['g'])
                         pub = data['pub']
                         payload = {
@@ -96,7 +111,7 @@ class Client(QtWidgets.QMainWindow):
                             'status': 'OK'
                         }
                         self.set_config()
-                        self.client.send(pickle.dumps(payload))
+                        self.send_data(payload)
                         self.master_key = dh.generate_full_key(pub).to_bytes(256, 'big')
 
                         self.connect_monitor.pub_ds = self.srv_pub_ds
@@ -243,21 +258,21 @@ class Client(QtWidgets.QMainWindow):
             img = value['data']['img']
             members = value['members']
             if self.ui.listWidget_2.currentItem():
-                if members == '-1' and self.ui.listWidget_2.currentItem().userid != uid:
+                if members == -1 and self.ui.listWidget_2.currentItem().userid != uid:
                     item = QtWidgets.QListWidgetItem()
                     item.setTextAlignment(QtCore.Qt.AlignRight)
                     item.setText(f"{self.users_id.get(uid, self.users_id_off.get(uid, 'UNKNOWN'))}:\n{text}")
                     self.ui.listWidget.addItem(item)
                     self.ui.listWidget.scrollToBottom()
                 else:
-                    if self.ui.listWidget_2.currentItem().userid == uid and members != '-1':
+                    if self.ui.listWidget_2.currentItem().userid == uid and members != -1:
                         item = QtWidgets.QListWidgetItem()
                         item.setTextAlignment(QtCore.Qt.AlignRight)
                         item.setText(f"{self.users_id.get(uid, self.users_id_off.get(uid, 'UNKNOWN'))}:\n{text}")
                         self.ui.listWidget.addItem(item)
                         self.ui.listWidget.scrollToBottom()
                     else:
-                        if members != '-1':
+                        if members != -1:
                             for item in self.items:
                                 if item.userid == uid:
                                     item.setBackground(QtGui.QColor('green'))
@@ -271,7 +286,9 @@ class Client(QtWidgets.QMainWindow):
             self.ui.listWidget_3.blockSignals(False)
             self.ui.listWidget_2.blockSignals(False)
             self.users_id = value['online']
+            self.users_id = {int(k): v for k, v in self.users_id.items()}
             self.users_id_off = value['offline']
+            self.users_id_off = {int(k): v for k, v in self.users_id_off.items()}
             self.inv_users_id = {val: key for key, val in self.users_id.items()}
             self.inv_users_id_off = {val: key for key, val in self.users_id_off.items()}
             del self.users_id[self.id]

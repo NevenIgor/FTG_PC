@@ -1,5 +1,5 @@
 import time
-import pickle
+import json
 
 from PyQt5 import QtCore
 
@@ -39,7 +39,7 @@ class MessageMonitor(QtCore.QThread):
                 print('Зашифрованные данные: ', data)
                 message = self.bc.decrypt(data, self.symmetric_key, 'CBC')
                 print('Расшифрованные данные: ', message)
-                recv = pickle.loads(message)
+                recv = json.loads(message.decode())
                 print('Десериализованные данные: ', recv)
                 if recv['status'] == 'OK':
                     if recv['type'] == 'CHANGE_CIPHER_SPEC':
@@ -53,7 +53,7 @@ class MessageMonitor(QtCore.QThread):
                             },
                             'status': 'OK'
                         }
-                        self.send_encrypt(pickle.dumps(payload))
+                        self.send_encrypt(payload)
                         master_key = dh.generate_full_key(pub).to_bytes(256, 'big')
                         self.mysignal.emit({'type': 'SET_MASTER_KEY',
                                             'master_key': master_key})
@@ -61,7 +61,7 @@ class MessageMonitor(QtCore.QThread):
                     elif recv['type'] == 'MESSAGE':
                         payload = recv['body']
                         sign = recv['sign']
-                        if self.ds.verify(int.from_bytes(pickle.dumps(payload), 'big'), sign, self.pub_ds):
+                        if self.ds.verify(int.from_bytes(json.dumps(payload).encode(), 'big'), sign, self.pub_ds):
                             print('Проверка подлинности ЦП прошла успешно')
                             userid = payload['userid']
                             users = payload['members']
@@ -88,5 +88,5 @@ class MessageMonitor(QtCore.QThread):
             time.sleep(2)
 
     def send_encrypt(self, data):
-        enc = self.bc.encrypt(pickle.dumps(data), self.symmetric_key, 'CBC')
+        enc = self.bc.encrypt(json.dumps(data).encode(), self.symmetric_key, 'CBC')
         self.server_socket.send(enc)

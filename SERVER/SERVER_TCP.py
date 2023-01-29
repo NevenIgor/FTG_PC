@@ -1,6 +1,6 @@
 import socket
 import threading
-import pickle
+
 import time
 import sqlite3
 import os
@@ -20,7 +20,7 @@ class Server:
         self.priv_keys = dict()
         self.ctr = 0
 
-        self.BLOCK_SIZE = 4096
+        self.DEFAULT_SIZE = 4096
 
         self.ds = DSGOST(p=57896044618658097711785492504343953926634992332820282019728792003956564821041,
                          a=7,
@@ -60,6 +60,14 @@ class Server:
 
         print('Сервер запущен!')
 
+    def send_data(self, client, payload):
+        data = json.dumps(payload)
+        client.send(data.encode())
+
+    def recv_data(self, client):
+        recv = client.recv(self.DEFAULT_SIZE).decode()
+        return json.loads(recv)
+
     def update_configs(self):
         if os.path.exists(os.path.join("AppData", "config.json")):
             with open(os.path.join("AppData", "config.json")) as file:
@@ -77,7 +85,7 @@ class Server:
     def connect_handler(self):
         while True:
             client, address = self.server.accept()
-            recv = pickle.loads(client.recv(self.BLOCK_SIZE))
+            recv = self.recv_data(client)
             if recv['type'] == 'SET_NEW_USER':
                 con = sqlite3.connect('AppData/members.db')
                 cursor = con.cursor()
@@ -101,18 +109,20 @@ class Server:
                     print(f'Подключение от {address}')
                     print('Обмен параметрами ДХ')
                     print(f'pub1: {dh.pub_key}')
+                    q_spec = [self.q_point.x, self.q_point.y, self.q_point.a, self.q_point.b, self.q_point.p]
                     payload = {'type': 'CHANGE_CIPHER_SPEC',
                                'id': self.online_clients[client]['id'],
                                'data': {
                                    'p': dh.p,
                                    'g': dh.g,
                                    'pub': dh.pub_key,
-                                   'pub_ds': self.q_point
+                                   'pub_ds': q_spec
                                 },
                                'status': 'OK'
                                }
-                    client.send(pickle.dumps(payload))
-                    recv = pickle.loads(client.recv(self.BLOCK_SIZE))
+                    print(payload)
+                    self.send_data(client, payload)
+                    recv = self.recv_data(client)
                     if recv['status'] == 'OK':
                         if recv['type'] == 'SPEC_RESPONSE':
                             data = recv['data']
@@ -149,7 +159,7 @@ class Server:
                     con.commit()
                     con.close()
                     threading.Thread(target=self.message_handler, args=(client,)).start()
-                    self.update_members()
+                    #self.update_members()
             elif recv['type'] == 'CONNECT':
                 if client not in self.online_clients:
                     self.online_clients[client] = {
@@ -162,17 +172,19 @@ class Server:
                     print(f'Подключение от {address}')
                     print('Обмен параметрами ДХ')
                     print(f'pub1: {dh.pub_key}')
+                    q_spec = [self.q_point.x, self.q_point.y, self.q_point.a, self.q_point.b, self.q_point.p]
                     payload = {'type': 'CHANGE_CIPHER_SPEC',
                                'data': {
                                    'p': dh.p,
                                    'g': dh.g,
                                    'pub': dh.pub_key,
-                                   'pub_ds': self.q_point
+                                   'pub_ds': q_spec
                                },
                                'status': 'OK'
                                }
-                    client.send(pickle.dumps(payload))
-                    recv = pickle.loads(client.recv(self.BLOCK_SIZE))
+                    print(payload)
+                    self.send_data(client, payload)
+                    recv = self.recv_data(client)
                     if recv['status'] == 'OK':
                         if recv['type'] == 'SPEC_RESPONSE':
                             data = recv['data']
@@ -192,24 +204,23 @@ class Server:
                     cursor = con.cursor()
                     cursor.execute(f'SELECT name FROM users WHERE id = {self.online_clients[client]["id"]}')
                     res = cursor.fetchone()[0]
-                    print(res, self.online_clients[client]["name"])
                     if res != self.online_clients[client]["name"]:
                         cursor.execute(f'UPDATE users SET name = "{self.online_clients[client]["name"]}"'
                                        f' WHERE id = {self.online_clients[client]["id"]}')
                     con.commit()
                     con.close()
                     threading.Thread(target=self.message_handler, args=(client,)).start()
-                    self.update_members()
+                    #self.update_members()
             time.sleep(2)
 
     def message_handler(self, client_socket):
         bc = BlockCipher()
         while True:
             try:
-                data = client_socket.recv(self.BLOCK_SIZE)
+                data = client_socket.recv(self.DEFAULT_SIZE)
                 key = self.online_clients[client_socket]['master']
                 message = bc.decrypt(data, key, 'CBC')
-                recv = pickle.loads(message)
+                recv = json.loads(message.decode())
                 print(recv)
             except:
                 del self.online_clients[client_socket]
@@ -223,18 +234,18 @@ class Server:
                                 payload = {
                                     'type': 'MESSAGE',
                                     'body': {
-                                        'members': '-1',
+                                        'members': -1,
                                         'userid': recv['userid'],
                                         'data': recv['data'],
                                     },
                                     'sign': None,
                                     'status': 'OK'
                                 }
-                                r, s = self.ds.sign(int.from_bytes(pickle.dumps(payload['body']), 'big'), self.d)
+                                r, s = self.ds.sign(int.from_bytes(json.dumps(payload['body']).encode(), 'big'), self.d)
                                 print(f'Цифровая подпись: {r}, {s}')
                                 payload['sign'] = (r, s)
                                 key = self.online_clients[client]['master']
-                                client.send(bc.encrypt(pickle.dumps(payload), key, 'CBC'))
+                                client.send(bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
                         query = f'INSERT INTO messages VALUES(Null, ' \
                                 f'-1, {recv["userid"]}, "{recv["data"]["text"]}")'
                         con = sqlite3.connect('AppData/backup.db')
@@ -267,11 +278,12 @@ class Server:
                                         'sign': None,
                                         'status': 'OK'
                                     }
-                                    r, s = self.ds.sign(int.from_bytes(pickle.dumps(payload['body']), 'big'), self.d)
+                                    r, s = self.ds.sign(int.from_bytes(json.dumps(payload['body']).encode(), 'big'),
+                                                        self.d)
                                     payload['sign'] = (r, s)
                                     print(f'Цифровая подпись: {r}, {s}')
                                     key = self.online_clients[client]['master']
-                                    client.send(bc.encrypt(pickle.dumps(payload), key, 'CBC'))
+                                    client.send(bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
                                     print(f'{self.online_clients[client]["id"]}, {recv["userid"]}, "{recv["data"]["text"]})"')
 
                 elif recv['type'] == 'UPDATE_MESSAGES':
@@ -295,7 +307,7 @@ class Server:
                     }
                     print(payload)
                     key = self.online_clients[client_socket]['master']
-                    client_socket.send(bc.encrypt(pickle.dumps(payload), key, 'CBC'))
+                    client_socket.send(bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
 
                 elif recv['type'] == "UPDATE_USERNAME":
                     userid = recv['userid']
@@ -342,9 +354,10 @@ class Server:
             },
             'status': 'OK'
         }
+        print(payload)
         for client in self.online_clients:
             key = self.online_clients[client]['master']
-            client.send(bc.encrypt(pickle.dumps(payload), key, 'CBC'))
+            client.send(bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
 
 
 if __name__ == "__main__":
