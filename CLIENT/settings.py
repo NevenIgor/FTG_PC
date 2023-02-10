@@ -14,9 +14,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(450, 308)
+        Form.resize(450, 438)
         self.frame = QtWidgets.QFrame(Form)
-        self.frame.setGeometry(QtCore.QRect(10, 10, 431, 271))
+        self.frame.setGeometry(QtCore.QRect(10, 10, 431, 401))
         self.frame.setStyleSheet("QFrame{\n"
 "    border: 2px solid #434965;\n"
 "    border-radius: 7px;\n"
@@ -25,8 +25,22 @@ class Ui_Form(object):
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")
+        self.label = QtWidgets.QLabel(self.frame)
+        self.label.setGeometry(QtCore.QRect(20, 10, 131, 111))
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label.setFont(font)
+        self.label.setStyleSheet("QLabel {\n"
+                                 "    color: white;\n"
+                                 "    border-radius: 0px;\n"
+                                 "    border: 2px solid #434965;;\n"
+                                 "}")
+        self.label.setAlignment(QtCore.Qt.AlignCenter)
+        self.label.setObjectName("label")
         self.lineEdit_2 = QtWidgets.QLineEdit(self.frame)
-        self.lineEdit_2.setGeometry(QtCore.QRect(20, 70, 391, 41))
+        self.lineEdit_2.setGeometry(QtCore.QRect(20, 190, 391, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -41,7 +55,7 @@ class Ui_Form(object):
         self.lineEdit_2.setClearButtonEnabled(False)
         self.lineEdit_2.setObjectName("lineEdit_2")
         self.lineEdit_3 = QtWidgets.QLineEdit(self.frame)
-        self.lineEdit_3.setGeometry(QtCore.QRect(20, 120, 391, 41))
+        self.lineEdit_3.setGeometry(QtCore.QRect(20, 240, 391, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -55,8 +69,54 @@ class Ui_Form(object):
         self.lineEdit_3.setAlignment(QtCore.Qt.AlignCenter)
         self.lineEdit_3.setClearButtonEnabled(False)
         self.lineEdit_3.setObjectName("lineEdit_3")
+
+        self.pushButton_4 = QtWidgets.QPushButton(self.frame)
+        self.pushButton_4.setGeometry(161, 10, 250, 50)
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButton_4.setFont(font)
+        self.pushButton_4.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.pushButton_4.setStyleSheet("QPushButton{\n"
+                                        "    color: white;\n"
+                                        "    border-radius: 7px;\n"
+                                        "    background-color: #595F76;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton:hover{\n"
+                                        "    background-color: #50566E;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton:pressed{\n"
+                                        "    background-color: #434965;\n"
+                                        "}")
+        self.pushButton_4.setObjectName("pushButton_4")
+        self.pushButton_5 = QtWidgets.QPushButton(self.frame)
+        self.pushButton_5.setGeometry(161, 70, 250, 50)
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButton_5.setFont(font)
+        self.pushButton_5.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.pushButton_5.setStyleSheet("QPushButton{\n"
+                                        "    color: white;\n"
+                                        "    border-radius: 7px;\n"
+                                        "    background-color: #595F76;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton:hover{\n"
+                                        "    background-color: #50566E;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QPushButton:pressed{\n"
+                                        "    background-color: #434965;\n"
+                                        "}")
+        self.pushButton_5.setObjectName("pushButton_5")
+
         self.pushButton_6 = QtWidgets.QPushButton(self.frame)
-        self.pushButton_6.setGeometry(QtCore.QRect(220, 220, 191, 41))
+        self.pushButton_6.setGeometry(QtCore.QRect(220, 340, 191, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -78,7 +138,7 @@ class Ui_Form(object):
 "}")
         self.pushButton_6.setObjectName("pushButton_6")
         self.pushButton_7 = QtWidgets.QPushButton(self.frame)
-        self.pushButton_7.setGeometry(QtCore.QRect(20, 220, 191, 41))
+        self.pushButton_7.setGeometry(QtCore.QRect(20, 340, 191, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -100,7 +160,7 @@ class Ui_Form(object):
 "}")
         self.pushButton_7.setObjectName("pushButton_7")
         self.lineEdit_4 = QtWidgets.QLineEdit(self.frame)
-        self.lineEdit_4.setGeometry(QtCore.QRect(20, 20, 391, 41))
+        self.lineEdit_4.setGeometry(QtCore.QRect(20, 140, 391, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -115,7 +175,7 @@ class Ui_Form(object):
         self.lineEdit_4.setClearButtonEnabled(False)
         self.lineEdit_4.setObjectName("lineEdit_4")
         self.pushButton_8 = QtWidgets.QPushButton(self.frame)
-        self.pushButton_8.setGeometry(QtCore.QRect(20, 170, 391, 41))
+        self.pushButton_8.setGeometry(QtCore.QRect(20, 290, 391, 41))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -143,8 +203,11 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
+        self.label.setText(_translate("Form", "64x64"))
         self.lineEdit_2.setPlaceholderText(_translate("Form", "IP Сервера"))
         self.lineEdit_3.setPlaceholderText(_translate("Form", "PORT Сервера"))
+        self.pushButton_4.setText(_translate("Form", "Загрузить"))
+        self.pushButton_5.setText(_translate("Form", "Удалить"))
         self.pushButton_6.setText(_translate("Form", "Сохранить и выйти"))
         self.pushButton_7.setText(_translate("Form", "Отменить"))
         self.lineEdit_4.setPlaceholderText(_translate("Form", "Никнейм"))

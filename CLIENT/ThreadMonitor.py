@@ -1,11 +1,13 @@
 import time
 import json
+import os
 
 from PyQt5 import QtCore
 
 from CryptoCore.DH import DHEndpoint
 from CryptoCore.DS import DSGOST
 from CryptoCore.BC import BlockCipher
+from CryptoCore.HASH import HGOST
 
 
 class MessageMonitor(QtCore.QThread):
@@ -14,17 +16,24 @@ class MessageMonitor(QtCore.QThread):
     symmetric_key = None
     BLOCK_SIZE = 4096
 
-    def __init__(self, parent=None, master_key=None, pub_ds=None):
+    def __init__(self, parent=None, master_key=None, priv_ds=None, srv_pub=None):
         QtCore.QThread.__init__(self, parent)
+
+        self.parent = parent
 
         if master_key:
             self.symmetric_key = master_key
 
-        if pub_ds:
-            self.pub_ds = pub_ds
+        if priv_ds:
+            self.priv_ds = priv_ds
+
+        if srv_pub:
+            self.srv_pub = srv_pub
+
+        self.queue = None
 
         self.bc = BlockCipher()
-
+        self.h = HGOST()
         self.ds = DSGOST(p=57896044618658097711785492504343953926634992332820282019728792003956564821041,
                          a=7,
                          b=43308876546767276905765904595650931995942111794451039583252968842033849580414,
@@ -35,11 +44,18 @@ class MessageMonitor(QtCore.QThread):
     def run(self):
         while True:
             if self.server_socket is not None:
+                if self.queue:
+                    self.send_encrypt(self.queue)
+                    self.queue = None
                 data = self.server_socket.recv(self.BLOCK_SIZE)
                 print('Зашифрованные данные: ', data)
                 message = self.bc.decrypt(data, self.symmetric_key, 'CBC')
                 print('Расшифрованные данные: ', message)
-                recv = json.loads(message.decode())
+                try:
+                    recv = json.loads(message.decode())
+                except Exception as e:
+                    print(e)
+                    continue
                 print('Десериализованные данные: ', recv)
                 if recv['status'] == 'OK':
                     if recv['type'] == 'CHANGE_CIPHER_SPEC':
@@ -61,7 +77,8 @@ class MessageMonitor(QtCore.QThread):
                     elif recv['type'] == 'MESSAGE':
                         payload = recv['body']
                         sign = recv['sign']
-                        if self.ds.verify(int.from_bytes(json.dumps(payload).encode(), 'big'), sign, self.pub_ds):
+                        h = int.from_bytes(self.h.hash(json.dumps(payload).encode()), 'big')
+                        if self.ds.verify(h, sign, self.srv_pub):
                             print('Проверка подлинности ЦП прошла успешно')
                             userid = payload['userid']
                             users = payload['members']
@@ -73,6 +90,40 @@ class MessageMonitor(QtCore.QThread):
                         else:
                             print('Цифровая подпись не соответствует сообщению')
 
+                    elif recv['type'] == 'IMG_ASK':
+                        if os.path.exists(os.path.join("Data", "profileImages", f'{self.parent.id}.png')):
+                            with open(os.path.join("Data", "profileImages", f'{self.parent.id}.png'), 'rb') as f:
+                                data = f.read()
+                            enc_data = self.bc.encrypt(data, self.symmetric_key, 'CBC')
+                            with open(os.path.join("Data", "profileImages", f'{self.parent.id}.enc'), 'wb') as f:
+                                f.write(enc_data)
+                            with open(os.path.join("Data", "profileImages", f'{self.parent.id}.enc'), 'rb') as f:
+                                while True:
+                                    data = f.read(self.BLOCK_SIZE)
+                                    if not data:
+                                        break
+                                    sent = self.server_socket.send(data)
+                                    assert sent == len(data)
+                            time.sleep(0.5)
+                            self.server_socket.send(b'EOF')
+                            os.remove(os.path.join("Data", "profileImages", f'{self.parent.id}.enc'))
+
+                    elif recv['type'] == 'IMG_SEND_SPEC':
+                        id = recv['id']
+                        data = b''
+                        while True:
+                            recv = self.server_socket.recv(self.BLOCK_SIZE)
+                            if recv != b'EOF':
+                                data += recv
+                            else:
+                                break
+                        if data:
+                            with open(os.path.join("Data", "profileImages", f'{id}.png'), 'wb') as f:
+                                f.write(self.bc.decrypt(data, self.symmetric_key, 'CBC'))
+                        self.mysignal.emit({
+                            'type': 'UPDATE_USERLIST'
+                        })
+
                     elif recv['type'] == 'UPDATE_MEMBERS':
                         clients = recv['data']
                         online = clients['online']
@@ -82,8 +133,12 @@ class MessageMonitor(QtCore.QThread):
                                             'offline': offline})
 
                     elif recv['type'] == 'MESSAGE_UPDATE_RESPONSE':
-                        self.mysignal.emit({'type': 'MESSAGE_UPDATE_RESPONSE',
-                                            'messages': recv['data']})
+                        sign = recv['sign']
+                        h = int.from_bytes(self.h.hash(json.dumps(recv['data']).encode()), 'big')
+                        if self.ds.verify(h, sign, self.srv_pub):
+                            print('Проверка подлинности ЦП прошла успешно')
+                            self.mysignal.emit({'type': 'MESSAGE_UPDATE_RESPONSE',
+                                                'messages': recv['data']})
 
             time.sleep(2)
 
