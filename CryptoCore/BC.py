@@ -3,6 +3,8 @@ class BlockCipher(object):
 
         self.Lvect = bytearray((148, 32, 133, 16, 194, 192, 1, 251, 1, 192, 194, 16, 133, 32, 148, 1))
 
+        self.L_k = bytearray((148, 32, 133, 16, 194, 192, 1, 251))
+
         self.Pi = bytearray((252, 238, 221, 17, 207, 110, 49, 22, 251, 196, 250, 218, 35, 197, 4, 77, 233, 119, 240,
                              219, 147, 46, 153, 186, 23, 54, 241, 187, 20, 205, 95, 193, 249, 24, 101, 90, 226, 92, 239,
                              33, 129, 28, 60, 66, 139, 1, 142, 79, 5, 132, 2, 174, 227, 106, 143, 160, 6, 11, 237, 152,
@@ -40,7 +42,9 @@ class BlockCipher(object):
 
         self.power = {}
         self.ret_power = {}
+        self.LUT = {}
         self.create_lot()
+        self.create_LUT()
         self.const = self.create_const()
 
         self.ctr_dict = dict(s=128, syncro='1234567890abcef0')
@@ -63,6 +67,13 @@ class BlockCipher(object):
             self.power[i] = a
             self.ret_power[a] = i
 
+    def create_LUT(self):
+        for k in self.L_k:
+            table = {}
+            for i in range(256):
+                table[i] = self.mul_gf2(k, i)
+            self.LUT[k] = table
+
     def xor(self, a, b):
         return int.to_bytes(int.from_bytes(a, 'big') ^ int.from_bytes(b, 'big'), 16, byteorder='big')
 
@@ -76,7 +87,7 @@ class BlockCipher(object):
         for _ in range(16):
             k = 0x0
             for i in range(16):
-                k = k ^ self.mul_gf2(vector[i], mass[i])
+                k = k ^ self.LUT[vector[i]][mass[i]]
             mass = int.to_bytes(k, 1, 'big') + mass[:-1]
         return mass
 
@@ -84,20 +95,20 @@ class BlockCipher(object):
         for _ in range(16):
             k = 0x0
             for i in range(16):
-                k = k ^ self.mul_gf2(vector[i], mass[-i - 1])
+                k = k ^ self.LUT[vector[i]][mass[-i - 1]]
             mass = mass[1:] + int.to_bytes(k, 1, 'big')
         return bytearray(mass)
 
     def code_block(self, round_key, block):
         X = self.xor(round_key, block)
-        S = bytearray(self.Pi[i] % 256 for i in X)
+        S = bytearray(self.Pi[i] for i in X)
         L = self.l_func(self.Lvect, S)
         return L
 
     def decode_block(self, round_key, block):
         X = self.xor(round_key, block)
         L = self.l_func_rev(self.Lvect, X)
-        S = bytearray(self.Pi_reverse[i] % 256 for i in L)
+        S = bytearray(self.Pi_reverse[i] for i in L)
         return S
 
     def round(self, keys, block):
