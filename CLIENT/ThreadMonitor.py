@@ -7,6 +7,7 @@ from PyQt5 import QtCore
 from CryptoCore.DH import DHEndpoint
 from CryptoCore.DS import DSGOST
 from CryptoCore.BC import BlockCipher
+from CryptoCore.Cipher import BlockCipher as FBlockCipher
 from CryptoCore.HASH import HGOST
 
 
@@ -33,6 +34,7 @@ class MessageMonitor(QtCore.QThread):
         self.queue = None
 
         self.bc = BlockCipher()
+        self.fbc = FBlockCipher()
         self.h = HGOST()
         self.ds = DSGOST(p=57896044618658097711785492504343953926634992332820282019728792003956564821041,
                          a=7,
@@ -94,7 +96,7 @@ class MessageMonitor(QtCore.QThread):
                         if os.path.exists(os.path.join("Data", "profileImages", f'{self.parent.id}.png')):
                             with open(os.path.join("Data", "profileImages", f'{self.parent.id}.png'), 'rb') as f:
                                 data = f.read()
-                            enc_data = self.bc.encrypt(data, self.symmetric_key, 'CBC')
+                            enc_data = self.fbc.encrypt(data, self.symmetric_key, 'CBC')
                             with open(os.path.join("Data", "profileImages", f'{self.parent.id}.enc'), 'wb') as f:
                                 f.write(enc_data)
                             with open(os.path.join("Data", "profileImages", f'{self.parent.id}.enc'), 'rb') as f:
@@ -119,7 +121,7 @@ class MessageMonitor(QtCore.QThread):
                                 break
                         if data:
                             with open(os.path.join("Data", "profileImages", f'{id}.png'), 'wb') as f:
-                                f.write(self.bc.decrypt(data, self.symmetric_key, 'CBC'))
+                                f.write(self.fbc.decrypt(data, self.symmetric_key, 'CBC'))
                         self.mysignal.emit({
                             'type': 'UPDATE_USERLIST'
                         })

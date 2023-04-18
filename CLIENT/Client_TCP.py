@@ -3,6 +3,7 @@ import json
 import time
 import os
 import zlib
+import getpass
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from GUI import *
@@ -247,14 +248,7 @@ class Client(QtWidgets.QMainWindow):
                         }
                         self.connect_monitor.send_encrypt(payload)
         else:
-            data = json.loads('{"userid": "", "username": "NoName", "img": "","pass": "", "priv_key": "", "server_ip": "127.0.0.1", "server_port": 1337}')
-            self.id = data['userid']
-            self.ip = data['server_ip']
-            self.port = data['server_port']
-            self.name = data['username']
-            self.img = data['img']
-            self.passwd = data['pass']
-            self.priv_ds = data['priv_key']
+            self.name = getpass.getuser()
             self.set_config()
 
     def set_config(self):
@@ -451,9 +445,11 @@ class Client(QtWidgets.QMainWindow):
                 }
                 self.connect_monitor.queue = payload
             self.update_user_list()
+            self.update_messages()
 
         elif value['type'] == 'UPDATE_USERLIST':
             self.update_user_list()
+            self.update_messages()
 
     def update_user_list(self):
         self.items.clear()
@@ -474,6 +470,12 @@ class Client(QtWidgets.QMainWindow):
             item.setText(self.users_id_off[user][0])
             self.ui.listWidget_2.addItem(item)
             self.items.append(item)
+
+    def update_messages(self):
+        items = list(self.ui.listWidget.item(i) for i in range(self.ui.listWidget.count()))
+        self.ui.listWidget.clear()
+        for item in items:
+            self.ui.listWidget.addItem(MessageItem(item.user_id, item.text, self))
 
     def send(self):
         if self.ui.listWidget_2.currentItem():
@@ -521,6 +523,10 @@ class MessageItem(QtWidgets.QListWidgetItem):
     def __init__(self, user_id, text, parent=None):
         super().__init__()
 
+        self.parent = parent
+        self.user_id = user_id
+        self.text = text
+
         if user_id == 0:
             self.my_message = True
         else:
@@ -529,10 +535,14 @@ class MessageItem(QtWidgets.QListWidgetItem):
 
         if not self.my_message:
             self.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            self.setIcon(parent.find_img(self.user_id))
+            self.setIcon(self.parent.find_img(self.user_id))
         else:
             self.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.setText(text)
+
+    def repaint(self):
+        if not self.my_message:
+            self.setIcon(self.parent.find_img(self.user_id))
 
 
 class UserItem(QtWidgets.QListWidgetItem):

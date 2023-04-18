@@ -13,7 +13,9 @@ from CryptoCore.DS import DSGOST
 from CryptoCore.EC import ECPoint
 from CryptoCore.BC import BlockCipher
 from CryptoCore.HASH import HGOST
+from CryptoCore.Cipher import BlockCipher as FBlockCipher
 
+from Display_LCD import Display
 
 class Server:
     def __init__(self, ip, port):
@@ -22,11 +24,15 @@ class Server:
         self.online_clients = dict()
         self.ctr = 0
 
+        self.display_connected = True
+        self.display = Display()
+
         self.DEFAULT_SIZE = 4096
 
         self.h = HGOST()
 
         self.bc = BlockCipher()
+        self.fbc = FBlockCipher()
 
         self.ds = DSGOST(p=57896044618658097711785492504343953926634992332820282019728792003956564821041,
                          a=7,
@@ -68,6 +74,11 @@ class Server:
         self.update_configs()
 
         print('Сервер запущен!')
+        self.print('Сервер запущен!')
+
+    def print(self, string):
+        if self.display_connected:
+            self.display.write_line(string)
 
     def send_data(self, client, payload):
         data = json.dumps(payload)
@@ -120,7 +131,9 @@ class Server:
                     }
                     dh = DHEndpoint()
                     print(f'Подключение от {address}')
+                    self.print(f'addr: {address}')
                     print('Обмен параметрами ДХ')
+                    print('DH key exchanging...')
                     print(f'pub1: {dh.pub_key}')
                     pub_spec = [self.pub_ds.x, self.pub_ds.y]
                     payload = {'type': 'CHANGE_CIPHER_SPEC',
@@ -145,10 +158,12 @@ class Server:
                             self.online_clients[client]['name'] = name
                     print(f'pub2: {self.online_clients[client]["pub"]}')
                     print('Генерация симметричного ключа...')
+                    self.print('Symmetric key generation...')
                     master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                     print(f'Симметричный ключ: {master_key}')
                     self.online_clients[client]['master'] = master_key
                     print(f'{address} - Успешное подключение к чату!')
+                    print('Successful connected')
                     print(self.online_clients[client])
                     passwd = int.from_bytes(random.randbytes(32), 'big')
                     payload = {
@@ -197,7 +212,7 @@ class Server:
                             break
                     if data:
                         with open(os.path.join('AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'wb') as f:
-                            f.write(self.bc.decrypt(data, master_key, 'CBC'))
+                            f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                         self.online_clients[client]["img"] = zlib.crc32(
                             open(os.path.join('AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'rb').read())
                     else:
@@ -211,6 +226,7 @@ class Server:
             elif recv['type'] == 'CONNECT':
                 if client not in self.online_clients:
                     print(f'Подключение от {address}')
+                    self.print(f'addr: {address}')
                     id = recv['id']
                     old = None
                     for old_client in self.online_clients:
@@ -231,6 +247,7 @@ class Server:
                         passwd = res[2]
                         challenge = int.from_bytes(random.randbytes(32), 'big')
                         print(f'Вызов: {challenge}')
+                        self.print('Auth challenge')
                         payload = {
                             'type': 'AUTH_CHALLENGE',
                             'data': {
@@ -251,6 +268,7 @@ class Server:
                                 if response == hash:
                                     if self.ds.verify(response, sign, pub_ds):
                                         print('Аутентификация пройдена успешно')
+                                        self.print('Completed')
                                         self.online_clients[client] = {
                                             'id': id,
                                             'name': None,
@@ -261,6 +279,7 @@ class Server:
                                         }
                                         dh = DHEndpoint()
                                         print('Обмен параметрами ДХ')
+                                        self.print('DH key exchange...')
                                         print(f'pub1: {dh.pub_key}')
                                         pub_spec = [self.pub_ds.x, self.pub_ds.y]
                                         payload = {'type': 'CHANGE_CIPHER_SPEC',
@@ -286,10 +305,12 @@ class Server:
                                                 self.online_clients[client]['img'] = img
                                                 print(f'pub2: {self.online_clients[client]["pub"]}')
                                                 print('Генерация симметричного ключа...')
+                                                self.print('Symmetric key generation')
                                                 master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                                                 print(f'Симметричный ключ: {master_key}')
                                                 self.online_clients[client]['master'] = master_key
                                                 print(f'{address} - Успешное подключение к чату!')
+                                                self.print('Successful connected')
                                                 print(self.online_clients[client])
                                                 con = sqlite3.connect('AppData/members.db')
                                                 cursor = con.cursor()
@@ -321,7 +342,7 @@ class Server:
                                                             with open(os.path.join('AppData', 'UsersImages',
                                                                                    f'{self.online_clients[client]["id"]}.png'),
                                                                       'wb') as f:
-                                                                f.write(self.bc.decrypt(data, master_key, 'CBC'))
+                                                                f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                                                             self.online_clients[client]["img"] = zlib.crc32(
                                                                 open(os.path.join('AppData', 'UsersImages',
                                                                                   f'{self.online_clients[client]["id"]}.png'),
@@ -344,7 +365,7 @@ class Server:
                                                             with open(os.path.join('AppData', 'UsersImages',
                                                                                    f'{self.online_clients[client]["id"]}.png'),
                                                                       'wb') as f:
-                                                                f.write(self.bc.decrypt(data, master_key, 'CBC'))
+                                                                f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                                                             self.online_clients[client]["img"] = zlib.crc32(
                                                                 open(os.path.join('AppData', 'UsersImages',
                                                                                   f'{self.online_clients[client]["id"]}.png'),
@@ -365,6 +386,7 @@ class Server:
 
                                     else:
                                         print('Неверный сертификат ЦП')
+                                        self.print('DS verification faild!')
                                         payload = {
                                             'type': 'AUTH_CONF',
                                             'err': 'Проверка ЦП не пройдена',
@@ -375,6 +397,7 @@ class Server:
                                         continue
                                 else:
                                     print('Неверный ответ на вызов')
+                                    self.print('Challenge faild')
                                     payload = {
                                         'type': 'AUTH_CONF',
                                         'err': 'Неверный ответ на вызов',
@@ -385,6 +408,7 @@ class Server:
                                     continue
                     else:
                         print(f'Пользователь с идентификатором {id} не найден')
+                        self.print(f'No user with id: {id}')
                         payload = {
                             'type': 'AUTH_ERR',
                             'err': f'No users found with id {id}',
@@ -413,6 +437,7 @@ class Server:
                     h = int.from_bytes(self.h.hash(json.dumps(recv['data']).encode()), 'big')
                     if self.ds.verify(h, recv['sign'], self.online_clients[client_socket]['pub_ds']):
                         print('Verification: True')
+                        self.print('DS verification completed')
                         if recv['members'] == -1:
                             for client in self.online_clients:
                                 if client != client_socket:
@@ -429,6 +454,7 @@ class Server:
                                     h = int.from_bytes(self.h.hash(json.dumps(payload['body']).encode()), 'big')
                                     r, s = self.ds.sign(h, self.priv_ds)
                                     print(f'Цифровая подпись: {r}, {s}')
+                                    print('signing data completed')
                                     payload['sign'] = (r, s)
                                     key = self.online_clients[client]['master']
                                     client.send(self.bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
@@ -468,6 +494,7 @@ class Server:
                                         r, s = self.ds.sign(h, self.priv_ds)
                                         payload['sign'] = (r, s)
                                         print(f'Цифровая подпись: {r}, {s}')
+                                        self.print('Signing data completed')
                                         key = self.online_clients[client]['master']
                                         client.send(self.bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
                 elif recv['type'] == 'UPDATE_MESSAGES':
@@ -524,7 +551,7 @@ class Server:
                                     with open(os.path.join('AppData', 'UsersImages',
                                                            f'{self.online_clients[client_socket]["id"]}.png'),
                                               'wb') as f:
-                                        f.write(self.bc.decrypt(data, key, 'CBC'))
+                                        f.write(self.fbc.decrypt(data, key, 'CBC'))
                         else:
                             payload = {
                                 'type': 'IMG_ASK',
@@ -545,7 +572,7 @@ class Server:
                                 with open(os.path.join('AppData', 'UsersImages',
                                                        f'{self.online_clients[client_socket]["id"]}.png'),
                                           'wb') as f:
-                                    f.write(self.bc.decrypt(data, key, 'CBC'))
+                                    f.write(self.fbc.decrypt(data, key, 'CBC'))
                     else:
                         if os.path.exists(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png'):
                             os.remove(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png')
@@ -575,7 +602,7 @@ class Server:
                         if os.path.exists(os.path.join('AppData', 'UsersImages', f'{img}.png')):
                             with open(os.path.join('AppData', 'UsersImages', f'{img}.png'), 'rb') as f:
                                 data = f.read()
-                            enc_data = self.bc.encrypt(data, key, 'CBC')
+                            enc_data = self.fbc.encrypt(data, key, 'CBC')
                             with open(os.path.join('AppData', 'UsersImages', f'{img}.enc'), 'wb') as f:
                                 f.write(enc_data)
                             with open(os.path.join('AppData', 'UsersImages', f'{img}.enc'), 'rb') as f:
