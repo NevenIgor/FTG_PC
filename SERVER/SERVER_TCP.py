@@ -17,7 +17,8 @@ from CryptoCore.Cipher import BlockCipher as FBlockCipher
 
 from Display_LCD import Display
 
-class Server:
+
+class Server():
     def __init__(self, ip, port):
         self.ip = ip
         self.port = port
@@ -48,7 +49,7 @@ class Server:
         self.server.listen(0)
         threading.Thread(target=self.connect_handler).start()
 
-        con = sqlite3.connect('AppData\\backup.db')
+        con = sqlite3.connect('SERVER/AppData/backup.db')
         cursor = con.cursor()
         create_table = f'CREATE TABLE IF NOT EXISTS messages(' \
                        'id INTEGER PRIMARY KEY AUTOINCREMENT,' \
@@ -59,7 +60,7 @@ class Server:
         con.commit()
         con.close()
 
-        con = sqlite3.connect('AppData/members.db')
+        con = sqlite3.connect('SERVER/AppData/members.db')
         cursor = con.cursor()
         create_table = f'CREATE TABLE IF NOT EXISTS users(' \
                        'id INTEGER PRIMARY KEY,' \
@@ -74,7 +75,7 @@ class Server:
         self.update_configs()
 
         print('Сервер запущен!')
-        self.print('Сервер запущен!')
+        self.print('Server is running!')
 
     def print(self, string):
         if self.display_connected:
@@ -90,13 +91,13 @@ class Server:
         return json.loads(recv.decode())
 
     def update_configs(self):
-        if os.path.exists(os.path.join("AppData", "config.json")):
-            with open(os.path.join("AppData", "config.json")) as file:
+        if os.path.exists(os.path.join('SERVER', "AppData", "config.json")):
+            with open(os.path.join('SERVER', "AppData", "config.json")) as file:
                 data = json.load(file)
                 self.ctr = data['ctr']
 
     def set_config(self):
-        with open(os.path.join("AppData", "config.json"), 'w') as file:
+        with open(os.path.join("SERVER", "AppData", "config.json"), 'w') as file:
             payload = {
                 'ctr': self.ctr
             }
@@ -108,7 +109,7 @@ class Server:
             client, address = self.server.accept()
             recv = self.recv_data(client)
             if recv['type'] == 'SET_NEW_USER':
-                con = sqlite3.connect('AppData/members.db')
+                con = sqlite3.connect('SERVER/AppData/members.db')
                 cursor = con.cursor()
                 cursor.execute(f'SELECT * FROM users WHERE id = {self.ctr}')
                 res = cursor.fetchall()
@@ -131,7 +132,7 @@ class Server:
                     }
                     dh = DHEndpoint()
                     print(f'Подключение от {address}')
-                    self.print(f'addr: {address}')
+                    self.print(f'addr: {address[0]}')
                     print('Обмен параметрами ДХ')
                     print('DH key exchanging...')
                     print(f'pub1: {dh.pub_key}')
@@ -158,12 +159,12 @@ class Server:
                             self.online_clients[client]['name'] = name
                     print(f'pub2: {self.online_clients[client]["pub"]}')
                     print('Генерация симметричного ключа...')
-                    self.print('Symmetric key generation...')
+                    self.print('Symmetric key gen...')
                     master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                     print(f'Симметричный ключ: {master_key}')
                     self.online_clients[client]['master'] = master_key
                     print(f'{address} - Успешное подключение к чату!')
-                    print('Successful connected')
+                    self.print('Successful connected')
                     print(self.online_clients[client])
                     passwd = int.from_bytes(random.randbytes(32), 'big')
                     payload = {
@@ -176,7 +177,7 @@ class Server:
                     }
                     print(payload)
                     client.send(self.bc.encrypt(json.dumps(payload).encode(), master_key, 'CBC'))
-                    con = sqlite3.connect('AppData/backup.db')
+                    con = sqlite3.connect('SERVER/AppData/backup.db')
                     cursor = con.cursor()
                     create_table = f'CREATE TABLE IF NOT EXISTS user{self.online_clients[client]["id"]}(' \
                                    'id INTEGER PRIMARY KEY AUTOINCREMENT,' \
@@ -186,7 +187,7 @@ class Server:
                     cursor.execute(create_table)
                     con.commit()
                     con.close()
-                    con = sqlite3.connect('AppData/members.db')
+                    con = sqlite3.connect('SERVER/AppData/members.db')
                     cursor = con.cursor()
                     cursor.execute(f'SELECT * FROM users WHERE id = {self.online_clients[client]["id"]}')
                     res = cursor.fetchall()
@@ -211,10 +212,10 @@ class Server:
                         else:
                             break
                     if data:
-                        with open(os.path.join('AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'wb') as f:
+                        with open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'wb') as f:
                             f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                         self.online_clients[client]["img"] = zlib.crc32(
-                            open(os.path.join('AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'rb').read())
+                            open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{self.online_clients[client]["id"]}.png'), 'rb').read())
                     else:
                         self.online_clients[client]["img"] = None
                     payload = {
@@ -236,7 +237,7 @@ class Server:
                         print(self.online_clients)
                         print(old)
                         del self.online_clients[old]
-                    con = sqlite3.connect('AppData/members.db')
+                    con = sqlite3.connect('SERVER/AppData/members.db')
                     cursor = con.cursor()
                     cursor.execute(f'SELECT q_spec_x, q_spec_y, pass FROM users WHERE id = {id}')
                     res = cursor.fetchone()
@@ -305,14 +306,14 @@ class Server:
                                                 self.online_clients[client]['img'] = img
                                                 print(f'pub2: {self.online_clients[client]["pub"]}')
                                                 print('Генерация симметричного ключа...')
-                                                self.print('Symmetric key generation')
+                                                self.print('Symmetric key gen')
                                                 master_key = dh.generate_full_key(self.online_clients[client]['pub']).to_bytes(32, 'big')
                                                 print(f'Симметричный ключ: {master_key}')
                                                 self.online_clients[client]['master'] = master_key
                                                 print(f'{address} - Успешное подключение к чату!')
                                                 self.print('Successful connected')
                                                 print(self.online_clients[client])
-                                                con = sqlite3.connect('AppData/members.db')
+                                                con = sqlite3.connect('SERVER/AppData/members.db')
                                                 cursor = con.cursor()
                                                 cursor.execute(f'SELECT name FROM users WHERE id = {self.online_clients[client]["id"]}')
                                                 res = cursor.fetchone()[0]
@@ -322,8 +323,8 @@ class Server:
                                                 con.commit()
                                                 con.close()
                                                 if img:
-                                                    if os.path.exists(os.path.join('AppData', 'UsersImages', f'{id}.png')):
-                                                        crc = zlib.crc32(open(os.path.join('AppData', 'UsersImages', f'{id}.png'), 'rb').read())
+                                                    if os.path.exists(os.path.join('SERVER', 'AppData', 'UsersImages', f'{id}.png')):
+                                                        crc = zlib.crc32(open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{id}.png'), 'rb').read())
                                                         if crc != img:
                                                             payload = {
                                                                 'type': 'IMG_ASK',
@@ -339,12 +340,12 @@ class Server:
                                                                     data += recv
                                                                 else:
                                                                     break
-                                                            with open(os.path.join('AppData', 'UsersImages',
+                                                            with open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                                                    f'{self.online_clients[client]["id"]}.png'),
                                                                       'wb') as f:
                                                                 f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                                                             self.online_clients[client]["img"] = zlib.crc32(
-                                                                open(os.path.join('AppData', 'UsersImages',
+                                                                open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                                                   f'{self.online_clients[client]["id"]}.png'),
                                                                      'rb').read())
                                                     else:
@@ -362,19 +363,19 @@ class Server:
                                                             else:
                                                                 break
                                                         if data:
-                                                            with open(os.path.join('AppData', 'UsersImages',
+                                                            with open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                                                    f'{self.online_clients[client]["id"]}.png'),
                                                                       'wb') as f:
                                                                 f.write(self.fbc.decrypt(data, master_key, 'CBC'))
                                                             self.online_clients[client]["img"] = zlib.crc32(
-                                                                open(os.path.join('AppData', 'UsersImages',
+                                                                open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                                                   f'{self.online_clients[client]["id"]}.png'),
                                                                      'rb').read())
                                                         else:
                                                             self.online_clients[client]["img"] = None
                                                 else:
-                                                    if os.path.exists(os.path.join('AppData', 'UsersImages', f'{id}.png')):
-                                                        os.remove(os.path.join('AppData', 'UsersImages', f'{id}.png'))
+                                                    if os.path.exists(os.path.join('SERVER', 'AppData', 'UsersImages', f'{id}.png')):
+                                                        os.remove(os.path.join('SERVER', 'AppData', 'UsersImages', f'{id}.png'))
                                                 payload = {
                                                     'type': 'CONNECT_CONFIRM',
                                                     'status': 'OK'
@@ -386,7 +387,7 @@ class Server:
 
                                     else:
                                         print('Неверный сертификат ЦП')
-                                        self.print('DS verification faild!')
+                                        self.print('DS verification fail!')
                                         payload = {
                                             'type': 'AUTH_CONF',
                                             'err': 'Проверка ЦП не пройдена',
@@ -397,7 +398,7 @@ class Server:
                                         continue
                                 else:
                                     print('Неверный ответ на вызов')
-                                    self.print('Challenge faild')
+                                    self.print('Challenge fail')
                                     payload = {
                                         'type': 'AUTH_CONF',
                                         'err': 'Неверный ответ на вызов',
@@ -460,7 +461,7 @@ class Server:
                                     client.send(self.bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
                             query = f'INSERT INTO messages VALUES(Null, ' \
                                     f'-1, {recv["userid"]}, "{recv["data"]["text"]}")'
-                            con = sqlite3.connect('AppData/backup.db')
+                            con = sqlite3.connect('SERVER/AppData/backup.db')
                             cursor = con.cursor()
                             cursor.execute(query)
                             con.commit()
@@ -468,7 +469,7 @@ class Server:
                         else:
                             query = f'INSERT INTO user{recv["members"]} VALUES(Null, ' \
                                     f'{recv["members"]}, {recv["userid"]}, "{recv["data"]["text"]}")'
-                            con = sqlite3.connect('AppData/backup.db')
+                            con = sqlite3.connect('SERVER/AppData/backup.db')
                             cursor = con.cursor()
                             cursor.execute(query)
                             con.commit()
@@ -506,7 +507,7 @@ class Server:
                         query = f'SELECT * FROM user{source} WHERE (destination_id = {source} and source_id = {dest}) ' \
                                 f'or ' \
                                 f'(destination_id = {dest} and source_id = {source}) ORDER BY id DESC LIMIT 10'
-                    con = sqlite3.connect('AppData/backup.db')
+                    con = sqlite3.connect('SERVER/AppData/backup.db')
                     cursor = con.cursor()
                     cursor.execute(query)
                     res = cursor.fetchall()[::-1]
@@ -529,7 +530,7 @@ class Server:
                     username = recv['username']
                     user_img = recv['img']
                     if user_img:
-                        if os.path.exists(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png'):
+                        if os.path.exists(f'SERVER/AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png'):
                             crc_store = zlib.crc32(open(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png', 'rb').read())
                             if user_img != crc_store:
                                 payload = {
@@ -548,7 +549,7 @@ class Server:
                                     else:
                                         break
                                 if data:
-                                    with open(os.path.join('AppData', 'UsersImages',
+                                    with open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                            f'{self.online_clients[client_socket]["id"]}.png'),
                                               'wb') as f:
                                         f.write(self.fbc.decrypt(data, key, 'CBC'))
@@ -569,16 +570,16 @@ class Server:
                                 else:
                                     break
                             if data:
-                                with open(os.path.join('AppData', 'UsersImages',
+                                with open(os.path.join('SERVER', 'AppData', 'UsersImages',
                                                        f'{self.online_clients[client_socket]["id"]}.png'),
                                           'wb') as f:
                                     f.write(self.fbc.decrypt(data, key, 'CBC'))
                     else:
-                        if os.path.exists(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png'):
-                            os.remove(f'AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png')
+                        if os.path.exists(f'SERVER/AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png'):
+                            os.remove(f'SERVER/AppData/UsersImages/{self.online_clients[client_socket]["id"]}.png')
                     self.online_clients[client_socket]['name'] = username
                     self.online_clients[client_socket]['img'] = user_img
-                    con = sqlite3.connect('AppData/members.db')
+                    con = sqlite3.connect('SERVER/AppData/members.db')
                     cursor = con.cursor()
                     query = f'UPDATE users SET name = "{username}" WHERE id = {userid}'
                     cursor.execute(query)
@@ -599,13 +600,13 @@ class Server:
                         client_socket.send(
                             self.bc.encrypt(json.dumps(payload).encode(), key, 'CBC'))
                         time.sleep(1.2)
-                        if os.path.exists(os.path.join('AppData', 'UsersImages', f'{img}.png')):
-                            with open(os.path.join('AppData', 'UsersImages', f'{img}.png'), 'rb') as f:
+                        if os.path.exists(os.path.join('SERVER', 'AppData', 'UsersImages', f'{img}.png')):
+                            with open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{img}.png'), 'rb') as f:
                                 data = f.read()
                             enc_data = self.fbc.encrypt(data, key, 'CBC')
-                            with open(os.path.join('AppData', 'UsersImages', f'{img}.enc'), 'wb') as f:
+                            with open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{img}.enc'), 'wb') as f:
                                 f.write(enc_data)
-                            with open(os.path.join('AppData', 'UsersImages', f'{img}.enc'), 'rb') as f:
+                            with open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{img}.enc'), 'rb') as f:
                                 while True:
                                     data = f.read(self.DEFAULT_SIZE)
                                     if not data:
@@ -614,7 +615,7 @@ class Server:
                                     assert sent == len(data)
                             time.sleep(1.2)
                             client_socket.send(b'EOF')
-                            os.remove(os.path.join('AppData', 'UsersImages', f'{img}.enc'))
+                            os.remove(os.path.join('SERVER', 'AppData', 'UsersImages', f'{img}.enc'))
                             time.sleep(1.2)
 
                 elif recv['type'] == "EXIT":
@@ -636,7 +637,7 @@ class Server:
             img = self.online_clients[client]['img']
             online[id] = (name, img)
         query = 'SELECT * FROM users'
-        con = sqlite3.connect('AppData/members.db')
+        con = sqlite3.connect('SERVER/AppData/members.db')
         cursor = con.cursor()
         cursor.execute(query)
         res = cursor.fetchall()
@@ -644,8 +645,8 @@ class Server:
         offline = {}
         for member in res:
             if member[0] not in online:
-                if os.path.exists(os.path.join('AppData', 'UsersImages', f'{member[0]}.png')):
-                    crc = zlib.crc32(open(os.path.join('AppData', 'UsersImages', f'{member[0]}.png'), 'rb').read())
+                if os.path.exists(os.path.join('SERVER', 'AppData', 'UsersImages', f'{member[0]}.png')):
+                    crc = zlib.crc32(open(os.path.join('SERVER', 'AppData', 'UsersImages', f'{member[0]}.png'), 'rb').read())
                 else:
                     crc = None
                 offline[member[0]] = (member[1], crc)

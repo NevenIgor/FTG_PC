@@ -34,6 +34,7 @@ class Display(object):
             self.write_lcd(20)
             time.sleep(0.3)
 
+
 disp = Display()
 disp.lcd.home()
 disp.write_line('Server is running!')
